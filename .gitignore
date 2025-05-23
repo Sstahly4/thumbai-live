@@ -1,1 +1,38 @@
+# General ignores
+.DS_Store
+*.pem
+node_modules/
+
+# Environment variables
+.env*
+!.env.example
+
+# Vercel
 .vercel
+
+# Project specific subdirectory: thumbai
+
+# Dependencies within thumbai
+thumbai/node_modules/
+
+# Next.js specific within thumbai
+thumbai/.next/
+thumbai/out/
+
+# Build output within thumbai
+thumbai/build/
+
+# TypeScript cache file within thumbai
+thumbai/*.tsbuildinfo
+
+# Debug logs within thumbai
+thumbai/npm-debug.log*
+thumbai/yarn-debug.log*
+thumbai/yarn-error.log*
+thumbai/.pnpm-debug.log*
+
+# Optional: If you have a .DS_Store specifically in thumbai too
+# thumbai/.DS_Store
+
+# Coverage reports within thumbai
+# thumbai/coverage/
