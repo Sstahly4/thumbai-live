@@ -2,11 +2,11 @@
 import type { NextAuthOptions, User as NextAuthUser, Session as NextAuthSession } from "next-auth"; // Renamed Session to NextAuthSession
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import EmailProvider from "next-auth/providers/email";
-// import CredentialsProvider from "next-auth/providers/credentials"; // Removed for diagnostics
+import CredentialsProvider from "next-auth/providers/credentials"; // Removed for diagnostics
 import { prisma } from "./prisma"; // Import the prisma client instance
 import UAParser from 'ua-parser-js'; // Restored import
 // import { headers } from 'next/headers'; // Commented out for now
-// import bcrypt from "bcryptjs"; // No longer needed if CredentialsProvider is removed
+import bcrypt from "bcryptjs"; // No longer needed if CredentialsProvider is removed
 // import { headers } from 'next/headers'; // To attempt to get headers - Commented out for diagnostics
 
 // Minimal User type for session
@@ -33,7 +33,34 @@ export const authOptions: NextAuthOptions = {
       },
       from: process.env.EMAIL_FROM,
     }),
-    // CredentialsProvider removed for diagnostics
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "text" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials.password) {
+          throw new Error("Missing credentials");
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+
+        if (!user || !user.hashedPassword) {
+          throw new Error("No user found with this email");
+        }
+
+        const isValid = await bcrypt.compare(credentials.password, user.hashedPassword);
+
+        if (!isValid) {
+          throw new Error("Incorrect password");
+        }
+
+        return user;
+      },
+    }),
   ],
   session: {
     strategy: "database",
