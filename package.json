@@ -15,11 +15,13 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "resend": "^4.5.1",
-    "stripe": "^18.1.1"
+    "stripe": "^18.1.1",
+    "ua-parser-js": "^2.0.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/react": "19.1.6",
+    "@types/ua-parser-js": "^0.7.39",
     "prisma": "^6.8.2",
     "tsx": "^4.19.4"
   },
