@@ -4,7 +4,10 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import EmailProvider from "next-auth/providers/email";
 // import CredentialsProvider from "next-auth/providers/credentials"; // Removed for diagnostics
 import { prisma } from "./prisma"; // Import the prisma client instance
+import UAParser from 'ua-parser-js'; // Restored import
+// import { headers } from 'next/headers'; // Commented out for now
 // import bcrypt from "bcryptjs"; // No longer needed if CredentialsProvider is removed
+// import { headers } from 'next/headers'; // To attempt to get headers - Commented out for diagnostics
 
 // Minimal User type for session
 interface AppUser extends NextAuthUser {
@@ -52,7 +55,69 @@ export const authOptions: NextAuthOptions = {
   },
   events: {
     async signIn(message) {
-      console.log("NextAuth signIn event:", message);
+      console.log("NextAuth signIn event user:", message.user);
+      if (!message.user || !message.user.id) {
+        console.error("SignIn event: User or User ID is missing.");
+        return;
+      }
+
+      // Attempt to get headers - THIS IS UNRELIABLE IN signIn EVENT - Commented out
+      let ipAddress: string | null = null; // Set to null
+      let userAgentString: string | null = null; // Set to null
+      // try {
+      //   const headerMap = headers(); // This line causes issues
+      //   ipAddress = headerMap.get('x-forwarded-for') || headerMap.get('remote-addr');
+      //   userAgentString = headerMap.get('user-agent');
+      // } catch (e) {
+      //   console.warn("Could not get headers in signIn event:", e);
+      // }
+      
+      console.log(`SignIn Details - User ID: ${message.user.id}, IP: ${ipAddress || 'unavailable_in_event'}, UA: ${userAgentString || 'unavailable_in_event'}`);
+
+      let deviceType, deviceName, osName, osVersion, browserName, browserVersion;
+
+      if (userAgentString) {
+        try {
+          // Correct UAParser instantiation:
+          const parser = new UAParser(userAgentString); 
+          const uaResult = parser.getResult();
+          deviceType = uaResult.device.type || null;
+          deviceName = uaResult.device.model || null;
+          osName = uaResult.os.name || null;
+          osVersion = uaResult.os.version || null;
+          browserName = uaResult.browser.name || null;
+          browserVersion = uaResult.browser.version || null;
+        } catch (parseError) {
+          console.error("Error parsing User-Agent:", parseError);
+        }
+      }
+
+      try {
+        await prisma.$transaction([
+          prisma.loginHistory.create({ // Correct model name
+            data: {
+              userId: message.user.id,
+              ipAddress: ipAddress, 
+              userAgent: userAgentString,
+              deviceType,
+              deviceName,
+              osName,
+              osVersion,
+              browserName,
+              browserVersion,
+              // timestamp is @default(now()) in schema
+            },
+          }),
+          prisma.user.update({
+            where: { id: message.user.id },
+            data: { lastLogin: new Date() }, // Correct field name
+          }),
+        ]);
+        console.log("Login history and user lastLogin updated successfully.");
+      } catch (dbError) {
+        console.error("Error saving login history or updating user:", dbError);
+      }
+
       if (message.isNewUser) {
         console.log("New user signed in:", message.user);
       } else {

@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // Ensure DATABASE_URL is set in your .env file
+}
+
+model User {
+  id                         String    @id @default(cuid())
+  name                       String?
+  email                      String?   @unique
+  emailVerified              DateTime?
+  image                      String?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+  accounts                   Account[]
+  sessions                   Session[]
+  apiKey                     ApiKey[] // User can have multiple API keys
+  tokenUsages                TokenUsage[] // Track token usage events
+  stripeCustomerId           String?   @unique @map(name: "stripe_customer_id")
+  stripeSubscriptionId       String?   @unique @map(name: "stripe_subscription_id")
+  stripePriceId              String?   @map(name: "stripe_price_id")
+  stripeCurrentPeriodEnd     DateTime? @map(name: "stripe_current_period_end")
+  subscriptionTier           SubscriptionTier? @default(hobby) // Default to hobby
+  subscriptionStatus         SubscriptionStatus? @default(active)
+  currentBillingPeriodStart  DateTime? // Start of the current billing cycle for token usage
+  currentBillingPeriodEnd    DateTime? // End of the current billing cycle for token usage
+  lastLogin                  DateTime? // Tracks the last login timestamp
+  hasPassword                Boolean   @default(false) // Indicates if the user has set a password
+  loginHistories             LoginHistory[] // Added relation
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model ApiKey {
+  id                 String   @id @default(cuid())
+  key                String   @unique
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+  lastUsedAt         DateTime?
+  expiresAt          DateTime?
+  requestsToday      Int      @default(0)
+  maxRequestsPerDay  Int      @default(1000) // Example limit
+  isActive           Boolean  @default(true)
+  name               String?  // Optional name for the API key
+  permissions        String[] @db.Text // e.g., ["read:thumbnails", "generate:thumbnails"]
+}
+
+model TokenUsage {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokensUsed         Int      // Number of tokens used in this event (already scaled by 100 if needed)
+  featureUsed        String   // e.g., "thumbnail_generation", "prompt_enhancement"
+  timestamp          DateTime @default(now())
+  billingPeriodStart DateTime // To associate usage with a specific billing period
+  billingPeriodEnd   DateTime // To associate usage with a specific billing period
+
+  @@index([userId, timestamp])
+  @@index([userId, billingPeriodStart])
+}
+
+model LoginHistory {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  timestamp   DateTime @default(now())
+  ipAddress   String?  // Store IP address
+  userAgent   String?  // Store full User-Agent string
+  deviceType  String?  // Parsed: e.g., "desktop", "mobile", "console", "tv", "wearable", "embedded"
+  deviceName  String?  // Parsed: e.g., "iPhone", "Pixel 4a", "Samsung SM-G998B"
+  osName      String?  // Parsed: e.g., "iOS", "Android", "Windows", "macOS"
+  osVersion   String?  // Parsed: e.g., "15.1", "11", "10.15.7"
+  browserName String?  // Parsed: e.g., "Mobile Safari", "Chrome", "Firefox"
+  browserVersion String?// Parsed: e.g., "15.1", "96.0.4664.110"
+  // Flags to be determined by your comparison logic later
+  // isNewDevice Boolean? 
+  // isNewIp     Boolean?
+
+  @@index([userId, timestamp])
+} 

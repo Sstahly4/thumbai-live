@@ -1,6 +1,4 @@
 // @ts-check
-// Import this file to force inclusion of dependencies
-import './vercel-build-pre.js';
 import type { NextConfig } from "next";
 
 /** @type {import('next').NextConfig} */
