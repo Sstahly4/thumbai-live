@@ -29,6 +29,7 @@ model User {
   currentBillingPeriodEnd    DateTime? // End of the current billing cycle for token usage
   lastLogin                  DateTime? // Tracks the last login timestamp
   hasPassword                Boolean   @default(false) // Indicates if the user has set a password
+  hashedPassword             String?   // Stores the hashed password
   loginHistories             LoginHistory[] // Added relation
 }
 

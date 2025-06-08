@@ -4,7 +4,7 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import EmailProvider from "next-auth/providers/email";
 import CredentialsProvider from "next-auth/providers/credentials"; // Removed for diagnostics
 import { prisma } from "./prisma"; // Import the prisma client instance
-import UAParser from 'ua-parser-js'; // Restored import
+import { UAParser } from 'ua-parser-js'; // Restored import
 // import { headers } from 'next/headers'; // Commented out for now
 import bcrypt from "bcryptjs"; // No longer needed if CredentialsProvider is removed
 // import { headers } from 'next/headers'; // To attempt to get headers - Commented out for diagnostics
@@ -105,9 +105,7 @@ export const authOptions: NextAuthOptions = {
 
       if (userAgentString) {
         try {
-          // Correct UAParser instantiation:
-          const parser = new UAParser(userAgentString); 
-          const uaResult = parser.getResult();
+          const uaResult = UAParser(userAgentString);
           deviceType = uaResult.device.type || null;
           deviceName = uaResult.device.model || null;
           osName = uaResult.os.name || null;
@@ -137,7 +135,7 @@ export const authOptions: NextAuthOptions = {
           }),
           prisma.user.update({
             where: { id: message.user.id },
-            data: { lastLogin: new Date() }, // Correct field name
+            data: { lastLogin: new Date() },
           }),
         ]);
         console.log("Login history and user lastLogin updated successfully.");
