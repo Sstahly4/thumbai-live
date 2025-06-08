@@ -1,0 +1,168 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "./generated/client"
+  binaryTargets = ["native", "rhel-openssl-1.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubscriptionTier {
+  hobby
+  pro
+  enterprise
+  free // Added a free tier for consistency if needed
+}
+
+enum SubscriptionStatus {
+  active
+  canceled
+  incomplete
+  past_due
+  inactive // Default status
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime?
+  ipAddress  String?
+  userAgent  String?
+  location   String?
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String? // For credentials provider
+  accounts      Account[]
+  sessions      Session[]
+
+  // Token & Subscription Fields
+  stripeCustomerId     String? @unique // Renamed from P1.2.1 for consistency
+  stripeSubscriptionId String? @unique
+  // stripePriceId              String? // This will now live on the SubscriptionPlan, linked via subscriptionTier
+  // stripeCurrentPeriodEnd     DateTime? // Replaced by currentBillingPeriodEnd
+  // stripeSubscriptionStatus   String? // Replaced by subscriptionStatus enum
+  // planType                   String? // Replaced by subscriptionTier enum
+
+  subscriptionTier          SubscriptionTier?   @default(hobby) // Using Enum
+  subscriptionStatus        SubscriptionStatus? @default(inactive) // Using Enum
+  currentBillingPeriodStart DateTime?
+  currentBillingPeriodEnd   DateTime?
+
+  credits Int? @default(10) // Retained, maybe for initial free credits or a different mechanism
+
+  // ---- New fields for usage tracking ----
+  currentUsage   Int       @default(0) // Tracks usage within the current billing period (e.g., thumbnails generated)
+  usageLimit     Int       @default(100) // Default limit, can be updated based on plan
+  usageResetDate DateTime? // Date when currentUsage should reset to 0
+
+  // ---- Login tracking fields ----
+  lastLogin    DateTime?
+  loginHistory LoginHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relation to PasswordResetToken
+  passwordResetTokens PasswordResetToken[]
+  tokenUsages         TokenUsage[] // Relation to TokenUsage
+  // stripePriceId from User model is removed as it's better placed on SubscriptionPlan
+  // We'll link User to SubscriptionPlan via the subscriptionTier
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// New Model for Password Resets
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique // The hashed reset token
+  expires   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model SubscriptionPlan {
+  id            String           @id @default(cuid())
+  name          SubscriptionTier @unique // 'hobby', 'pro', 'enterprise', 'free'
+  stripePriceId String           @unique
+  monthlyTokens Int
+  features      String           @db.Text // Store as JSON string, e.g. "["basic_thumbnails", "templates"]"
+  priceCents    Int // Price in cents
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
+
+model TokenUsage {
+  id                 String   @id @default(cuid())
+  userId             String
+  tokensUsed         Int
+  featureUsed        String // e.g., "thumbnail_generation", "bulk_upload"
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+  createdAt          DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, billingPeriodStart])
+}
+
+// New Model for Login History Tracking
+model LoginHistory {
+  id              String   @id @default(cuid())
+  userId          String
+  ipAddress       String?
+  userAgent       String?
+  deviceType      String?
+  operatingSystem String?
+  browser         String?
+  isNewDevice     Boolean  @default(false)
+  isNewIpAddress  Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
