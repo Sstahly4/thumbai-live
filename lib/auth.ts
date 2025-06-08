@@ -69,15 +69,11 @@ export const authOptions: NextAuthOptions = {
   },
   // Temporarily simplify callbacks for diagnostics
   callbacks: {
-    // Session callback removed for diagnostics. 
-    // The adapter should handle session creation/retrieval; 
-    // this callback primarily augments the session object.
     async session({ session, user }) {
-      const s = session as AppSession;
-      if (s.user && user) {
-        s.user.id = user.id;
+      if (session.user && user) {
+        session.user.id = user.id; // Explicitly assign the user's ID to the session
       }
-      return s;
+      return session;
     },
   },
   events: {
