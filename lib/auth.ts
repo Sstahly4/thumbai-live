@@ -57,8 +57,17 @@ export const authOptions: NextAuthOptions = {
         if (!isValid) {
           throw new Error("Incorrect password");
         }
+        
+        if (!user.email) {
+          throw new Error("User does not have an email.");
+        }
 
-        return user;
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+        };
       },
     }),
   ],
