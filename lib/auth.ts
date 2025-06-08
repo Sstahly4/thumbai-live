@@ -2,11 +2,11 @@
 import type { NextAuthOptions, User as NextAuthUser, Session as NextAuthSession } from "next-auth"; // Renamed Session to NextAuthSession
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import EmailProvider from "next-auth/providers/email";
-// import CredentialsProvider from "next-auth/providers/credentials"; // Removed for diagnostics
+import CredentialsProvider from "next-auth/providers/credentials"; // Removed for diagnostics
 import { prisma } from "./prisma"; // Import the prisma client instance
-import UAParser from 'ua-parser-js'; // Restored import
+import { UAParser } from 'ua-parser-js'; // Restored import
 // import { headers } from 'next/headers'; // Commented out for now
-// import bcrypt from "bcryptjs"; // No longer needed if CredentialsProvider is removed
+import bcrypt from "bcryptjs"; // No longer needed if CredentialsProvider is removed
 // import { headers } from 'next/headers'; // To attempt to get headers - Commented out for diagnostics
 
 // Minimal User type for session
@@ -33,24 +33,61 @@ export const authOptions: NextAuthOptions = {
       },
       from: process.env.EMAIL_FROM,
     }),
-    // CredentialsProvider removed for diagnostics
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "text" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials.password) {
+          throw new Error("Missing credentials");
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+
+        if (!user || !user.hashedPassword) {
+          throw new Error("No user found with this email");
+        }
+
+        const isValid = await bcrypt.compare(credentials.password, user.hashedPassword);
+
+        if (!isValid) {
+          throw new Error("Incorrect password");
+        }
+        
+        if (!user.email) {
+          throw new Error("User does not have an email.");
+        }
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+        };
+      },
+    }),
   ],
   session: {
     strategy: "database",
     maxAge: 30 * 24 * 60 * 60, // 30 days
     updateAge: 24 * 60 * 60, // 24 hours
   },
-  // Temporarily simplify callbacks for diagnostics
   callbacks: {
-    // Session callback removed for diagnostics. 
-    // The adapter should handle session creation/retrieval; 
-    // this callback primarily augments the session object.
-    async session({ session, user }) {
-      const s = session as AppSession;
-      if (s.user && user) {
-        s.user.id = user.id;
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
       }
-      return s;
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string;
+      }
+      return session;
     },
   },
   events: {
@@ -78,9 +115,7 @@ export const authOptions: NextAuthOptions = {
 
       if (userAgentString) {
         try {
-          // Correct UAParser instantiation:
-          const parser = new UAParser(userAgentString); 
-          const uaResult = parser.getResult();
+          const uaResult = UAParser(userAgentString);
           deviceType = uaResult.device.type || null;
           deviceName = uaResult.device.model || null;
           osName = uaResult.os.name || null;
@@ -110,7 +145,7 @@ export const authOptions: NextAuthOptions = {
           }),
           prisma.user.update({
             where: { id: message.user.id },
-            data: { lastLogin: new Date() }, // Correct field name
+            data: { lastLogin: new Date() },
           }),
         ]);
         console.log("Login history and user lastLogin updated successfully.");
