@@ -3,6 +3,15 @@ import type { NextConfig } from "next";
 
 /** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/login',
+        permanent: true,
+      },
+    ]
+  },
   reactStrictMode: true,
   transpilePackages: ['openai', 'axios', 'fabric', 'konva', 'react-konva', 'inngest', '@upstash/redis'],
   eslint: {
