@@ -1,0 +1,3 @@
+[submodule "thumbai"]
+	path = thumbai
+	url = https://github.com/Sstahly4/thumbai-live.git
