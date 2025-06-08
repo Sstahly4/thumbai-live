@@ -6,7 +6,7 @@ import { User } from 'next-auth';
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -15,7 +15,7 @@ export async function DELETE(
   }
 
   const userId = session.user.id;
-  const { sessionId } = params;
+  const { sessionId } = await params;
 
   try {
     const sessionToDelete = await prisma.session.findFirst({
