@@ -1,30 +1,23 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../../../../lib/auth';
-import { prisma } from '../../../../../lib/prisma';
-
-interface SessionUser {
-  id: string;
-  name?: string | null;
-  email?: string | null;
-  image?: string | null;
-}
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { User } from 'next-auth';
 
 export async function DELETE(
-  request: Request,
+  req: Request,
   { params }: { params: { sessionId: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || !(session.user as SessionUser).id) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const userId = (session.user as SessionUser).id;
+  const userId = session.user.id;
   const { sessionId } = params;
 
   try {
-    // First verify the session belongs to the user
     const sessionToDelete = await prisma.session.findFirst({
       where: {
         id: sessionId,
@@ -39,7 +32,6 @@ export async function DELETE(
       );
     }
 
-    // Delete the session
     await prisma.session.delete({
       where: {
         id: sessionId,
